@@ -1,0 +1,32 @@
+{
+  "name": "@anentrypoint/statekit",
+  "version": "1.0.0",
+  "description": "Persistent compute through content-addressable filesystem layers",
+  "main": "lib/index.js",
+  "bin": {
+    "statekit": "./cli.js"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "state",
+    "layers",
+    "persistent",
+    "compute",
+    "content-addressable",
+    "filesystem"
+  ],
+  "author": "AnEntrypoint",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "tar": "^6.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnEntrypoint/statekit.git"
+  }
+}
