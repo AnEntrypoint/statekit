@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { StateKit } = require('./lib');
+const fs = require('fs');
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -11,76 +12,162 @@ const kit = new StateKit({
 
 async function main() {
   switch (cmd) {
-    case 'run':
+    case 'run': {
       const instruction = args.slice(1).join(' ');
-      if (!instruction) {
-        console.error('Usage: statekit run <command>');
-        process.exit(1);
-      }
-      const result = await kit.run(instruction);
-      console.log(JSON.stringify(result));
+      if (!instruction) return exit('Usage: statekit run <command>');
+      const r = await kit.run(instruction);
+      const status = r.cached ? 'cached' : r.empty ? 'empty' : 'new';
+      console.log(`${r.short} [${status}]`);
       break;
+    }
 
-    case 'batch':
+    case 'exec': {
+      const instruction = args.slice(1).join(' ');
+      if (!instruction) return exit('Usage: statekit exec <command>');
+      await kit.exec(instruction);
+      break;
+    }
+
+    case 'batch': {
       const file = args[1];
-      if (!file) {
-        console.error('Usage: statekit batch <file.json>');
-        process.exit(1);
-      }
-      const instructions = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+      if (!file) return exit('Usage: statekit batch <file.json>');
+      const instructions = JSON.parse(fs.readFileSync(file, 'utf8'));
       const results = await kit.batch(instructions);
-      console.log(JSON.stringify(results, null, 2));
+      for (const r of results) {
+        const status = r.cached ? 'cached' : r.empty ? 'empty' : 'new';
+        console.log(`${r.short} [${status}]`);
+      }
       break;
+    }
 
-    case 'history':
+    case 'history': {
       const history = kit.history();
-      for (const layer of history) {
-        console.log(`${layer.hash.slice(0, 12)} ${layer.instruction}`);
+      if (history.length === 0) return console.log('(empty)');
+      for (const l of history) {
+        const parent = l.parentShort ? ` <- ${l.parentShort}` : '';
+        console.log(`${l.short}${parent}  ${l.instruction}`);
       }
       break;
+    }
 
-    case 'rebuild':
+    case 'status': {
+      const s = await kit.status();
+      if (s.clean) return console.log('clean');
+      for (const f of s.added) console.log(`+ ${f}`);
+      for (const f of s.modified) console.log(`~ ${f}`);
+      for (const f of s.deleted) console.log(`- ${f}`);
+      break;
+    }
+
+    case 'diff': {
+      const from = args[1];
+      const to = args[2];
+      const d = await kit.diff(from, to);
+      if (d.added.length === 0 && d.modified.length === 0 && d.deleted.length === 0) {
+        return console.log('(no changes)');
+      }
+      for (const f of d.added) console.log(`+ ${f}`);
+      for (const f of d.modified) console.log(`~ ${f}`);
+      for (const f of d.deleted) console.log(`- ${f}`);
+      break;
+    }
+
+    case 'checkout': {
+      const ref = args[1];
+      if (!ref) return exit('Usage: statekit checkout <ref>');
+      await kit.checkout(ref);
+      console.log(`checked out ${kit.head().slice(0, 12)}`);
+      break;
+    }
+
+    case 'tag': {
+      const name = args[1];
+      const ref = args[2];
+      if (!name) return exit('Usage: statekit tag <name> [ref]');
+      kit.tag(name, ref);
+      console.log(`tagged ${name} -> ${kit._resolve(name).slice(0, 12)}`);
+      break;
+    }
+
+    case 'tags': {
+      const tags = kit.tags();
+      const entries = Object.entries(tags);
+      if (entries.length === 0) return console.log('(no tags)');
+      for (const [name, hash] of entries) {
+        console.log(`${name} -> ${hash.slice(0, 12)}`);
+      }
+      break;
+    }
+
+    case 'inspect': {
+      const ref = args[1];
+      if (!ref) return exit('Usage: statekit inspect <ref>');
+      const info = kit.inspect(ref);
+      console.log(`hash:        ${info.hash}`);
+      console.log(`instruction: ${info.instruction}`);
+      console.log(`parent:      ${info.parent || '(none)'}`);
+      console.log(`time:        ${info.time.toISOString()}`);
+      console.log(`size:        ${formatBytes(info.size)}`);
+      break;
+    }
+
+    case 'rebuild': {
       const count = await kit.rebuild();
-      console.log(`Rebuilt ${count} layers`);
+      console.log(`rebuilt ${count} layers`);
       break;
+    }
 
-    case 'reset':
+    case 'reset': {
       await kit.reset();
-      console.log('Reset complete');
+      console.log('reset');
       break;
+    }
 
-    case 'head':
+    case 'head': {
       const head = kit.head();
-      console.log(head || '(empty)');
+      console.log(head ? head.slice(0, 12) : '(empty)');
       break;
-
-    case 'checkout':
-      const targetHash = args[1];
-      if (!targetHash) {
-        console.error('Usage: statekit checkout <hash>');
-        process.exit(1);
-      }
-      await kit.checkout(targetHash);
-      console.log(`Checked out ${targetHash.slice(0, 12)}`);
-      break;
+    }
 
     default:
       console.log(`statekit - persistent compute through content-addressable layers
 
 Commands:
-  run <cmd>       Execute command, capture state diff as layer
-  batch <file>    Run instructions from JSON file
-  history         Show layer history  
-  checkout <hash> Restore workdir to a specific layer
-  rebuild         Rebuild workdir from all layers
-  reset           Clear all state
-  head            Show current head hash
+  run <cmd>        Run command and capture state as layer
+  exec <cmd>       Run command without capturing state
+  batch <file>     Run instructions from JSON array file
+  
+  history          Show layer history
+  status           Show uncommitted changes in workdir
+  diff [from] [to] Show changes between layers
+  
+  checkout <ref>   Restore workdir to a layer
+  tag <name> [ref] Create named reference to a layer
+  tags             List all tags
+  inspect <ref>    Show layer details
+  
+  rebuild          Rebuild workdir from layers
+  reset            Clear all state
+  head             Show current head
+
+Refs can be: full hash, short hash (12+ chars), or tag name
 
 Environment:
-  STATEKIT_DIR    State directory (default: .statekit)
-  STATEKIT_WORK   Working directory (default: .statekit/work)
+  STATEKIT_DIR     State directory (default: .statekit)
+  STATEKIT_WORK    Working directory (default: .statekit/work)
 `);
   }
+}
+
+function exit(msg) {
+  console.error(msg);
+  process.exit(1);
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 main().catch(err => {

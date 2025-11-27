@@ -2,7 +2,7 @@
 
 Persistent compute through content-addressable filesystem layers.
 
-Run commands and capture filesystem changes as immutable layers. Skip execution when the same instruction runs from the same state - the result is restored from cache.
+Run commands, capture filesystem changes as immutable layers. Same instruction from same state = instant cache hit.
 
 ## Install
 
@@ -10,27 +10,40 @@ Run commands and capture filesystem changes as immutable layers. Skip execution 
 npm install @anentrypoint/statekit
 ```
 
-## CLI Usage
+## CLI
 
 ```bash
-# Run commands and capture state
+# Run and capture
 statekit run "npm install"
 statekit run "npm run build"
 
-# View layer history
-statekit history
+# Check status
+statekit status        # uncommitted workdir changes
+statekit history       # layer history
+statekit head          # current layer hash
 
-# Go back to a previous state
-statekit checkout abc123
+# Navigate
+statekit checkout abc123    # by short hash
+statekit checkout v1        # by tag
+statekit diff abc123 def456 # compare layers
 
-# Rebuild workdir from layers
-statekit rebuild
+# Tags
+statekit tag v1             # tag current head
+statekit tag release abc123 # tag specific layer
+statekit tags               # list tags
 
-# Clear everything
-statekit reset
+# Inspect
+statekit inspect v1         # layer details
+
+# Manage
+statekit rebuild            # reconstruct workdir from layers
+statekit reset              # clear all state
+
+# Run without capture
+statekit exec "cat file.txt"
 ```
 
-## API Usage
+## API
 
 ```javascript
 const { StateKit } = require('@anentrypoint/statekit');
@@ -40,50 +53,72 @@ const kit = new StateKit({
   workdir: '.statekit/work'
 });
 
-// Run instruction - captures filesystem diff as layer
-const result = await kit.run('echo "hello" > greeting.txt');
-// { hash: 'abc123...', cached: false }
+// Run and capture
+const r = await kit.run('echo "hello" > hello.txt');
+// { hash: 'abc...', short: 'abc123def456', cached: false }
 
-// Same instruction from same state = cache hit
-await kit.checkout(previousHash);
-const cached = await kit.run('echo "hello" > greeting.txt');
-// { hash: 'abc123...', cached: true }
+// Cache hit when same instruction from same parent
+await kit.checkout(r.hash);
+const cached = await kit.run('echo "hello" > hello.txt');
+// { hash: 'abc...', short: 'abc123def456', cached: true }
 
-// Run multiple instructions
-await kit.batch([
-  'npm install',
-  'npm run build',
-  'npm test'
-]);
+// Batch
+await kit.batch(['npm install', 'npm build', 'npm test']);
 
-// View history
+// Status - uncommitted changes
+const s = await kit.status();
+// { added: [], modified: [], deleted: [], clean: true }
+
+// Diff between layers
+const d = await kit.diff('abc123', 'def456');
+// { added: ['new.txt'], modified: ['changed.txt'], deleted: [] }
+
+// Tags
+kit.tag('v1');
+kit.tag('release', 'abc123');
+kit.tags(); // { v1: 'abc...', release: 'abc...' }
+
+// Navigate
+await kit.checkout('v1');     // by tag
+await kit.checkout('abc123'); // by short hash
+
+// Inspect
+kit.inspect('v1');
+// { hash, short, instruction, parent, time, size }
+
+// History
 kit.history();
-// [{ hash, instruction, parent, time }, ...]
+// [{ hash, short, instruction, parent, parentShort, time }, ...]
 
-// Restore to specific layer
-await kit.checkout(hash);
+// Run without capture
+await kit.exec('cat file.txt');
 
-// Rebuild from all layers
-await kit.rebuild();
-
-// Clear state
-await kit.reset();
+// Manage
+await kit.rebuild();  // reconstruct workdir
+await kit.reset();    // clear everything
 ```
 
 ## How It Works
 
-1. **Run** - Execute command in workdir
-2. **Diff** - Compare filesystem to previous state
-3. **Store** - Save diff as content-addressed tar blob
-4. **Cache** - Key = sha256(instruction + parent_hash)
-5. **Restore** - On cache hit, extract stored blob
+1. **Run** - execute command in workdir
+2. **Diff** - compare to previous state
+3. **Store** - save diff as content-addressed tar
+4. **Index** - record layer with `sha256(instruction + parent)`
+5. **Cache** - on match, restore from stored tar
 
-Layers are immutable. The same instruction from the same parent state always produces the same result.
+Each layer stores only what changed. Layers are immutable. Same instruction from same parent always hits cache.
 
-## Environment Variables
+## Refs
 
-- `STATEKIT_DIR` - State directory (default: `.statekit`)
-- `STATEKIT_WORK` - Working directory (default: `.statekit/work`)
+Commands accept refs in multiple formats:
+- Full hash: `abc123def456...` (64 chars)
+- Short hash: `abc123def456` (12+ chars)
+- Tag name: `v1`, `release`
+
+## Environment
+
+- `STATEKIT_DIR` - state directory (default: `.statekit`)
+- `STATEKIT_WORK` - working directory (default: `.statekit/work`)
 
 ## License
 
