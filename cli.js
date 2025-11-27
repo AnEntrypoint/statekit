@@ -6,15 +6,15 @@ const args = process.argv.slice(2);
 const cmd = args[0];
 
 const kit = new StateKit({
-  stateDir: process.env.STATEKIT_DIR || '.statekit',
-  workdir: process.env.STATEKIT_WORK || undefined
+  stateDir: process.env.SEQUENTIAL_MACHINE_DIR || '.sequential-machine',
+  workdir: process.env.SEQUENTIAL_MACHINE_WORK || undefined
 });
 
 async function main() {
   switch (cmd) {
     case 'run': {
       const instruction = args.slice(1).join(' ');
-      if (!instruction) return exit('Usage: statekit run <command>');
+      if (!instruction) return exit('Usage: sequential-machine run <command>');
       const r = await kit.run(instruction);
       const status = r.cached ? 'cached' : r.empty ? 'empty' : 'new';
       console.log(`${r.short} [${status}]`);
@@ -23,14 +23,14 @@ async function main() {
 
     case 'exec': {
       const instruction = args.slice(1).join(' ');
-      if (!instruction) return exit('Usage: statekit exec <command>');
+      if (!instruction) return exit('Usage: sequential-machine exec <command>');
       await kit.exec(instruction);
       break;
     }
 
     case 'batch': {
       const file = args[1];
-      if (!file) return exit('Usage: statekit batch <file.json>');
+      if (!file) return exit('Usage: sequential-machine batch <file.json>');
       const instructions = JSON.parse(fs.readFileSync(file, 'utf8'));
       const results = await kit.batch(instructions);
       for (const r of results) {
@@ -74,7 +74,7 @@ async function main() {
 
     case 'checkout': {
       const ref = args[1];
-      if (!ref) return exit('Usage: statekit checkout <ref>');
+      if (!ref) return exit('Usage: sequential-machine checkout <ref>');
       await kit.checkout(ref);
       console.log(`checked out ${kit.head().slice(0, 12)}`);
       break;
@@ -83,7 +83,7 @@ async function main() {
     case 'tag': {
       const name = args[1];
       const ref = args[2];
-      if (!name) return exit('Usage: statekit tag <name> [ref]');
+      if (!name) return exit('Usage: sequential-machine tag <name> [ref]');
       kit.tag(name, ref);
       console.log(`tagged ${name} -> ${kit._resolve(name).slice(0, 12)}`);
       break;
@@ -101,7 +101,7 @@ async function main() {
 
     case 'inspect': {
       const ref = args[1];
-      if (!ref) return exit('Usage: statekit inspect <ref>');
+      if (!ref) return exit('Usage: sequential-machine inspect <ref>');
       const info = kit.inspect(ref);
       console.log(`hash:        ${info.hash}`);
       console.log(`instruction: ${info.instruction}`);
@@ -130,7 +130,7 @@ async function main() {
     }
 
     default:
-      console.log(`statekit - persistent compute through content-addressable layers
+      console.log(`sequential-machine - persistent compute through content-addressable layers
 
 Commands:
   run <cmd>        Run command and capture state as layer
@@ -153,8 +153,8 @@ Commands:
 Refs can be: full hash, short hash (12+ chars), or tag name
 
 Environment:
-  STATEKIT_DIR     State directory (default: .statekit)
-  STATEKIT_WORK    Working directory (default: .statekit/work)
+  SEQUENTIAL_MACHINE_DIR     State directory (default: .sequential-machine)
+  SEQUENTIAL_MACHINE_WORK    Working directory (default: .sequential-machine/work)
 `);
   }
 }

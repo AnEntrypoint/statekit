@@ -1,52 +1,52 @@
-# statekit
+# sequential-machine
 
-Persistent compute through content-addressable filesystem layers.
+Persistent compute through content-addressable filesystem layers - Sequential ecosystem machine runner.
 
 Run commands, capture filesystem changes as immutable layers. Same instruction from same state = instant cache hit.
 
 ## Install
 
 ```bash
-npm install @anentrypoint/statekit
+npm install @sequential-ecosystem/sequential-machine
 ```
 
 ## CLI
 
 ```bash
 # Run and capture
-statekit run "npm install"
-statekit run "npm run build"
+sequential-machine run "npm install"
+sequential-machine run "npm run build"
 
 # Check status
-statekit status        # uncommitted workdir changes
-statekit history       # layer history
-statekit head          # current layer hash
+sequential-machine status        # uncommitted workdir changes
+sequential-machine history       # layer history
+sequential-machine head          # current layer hash
 
 # Navigate
-statekit checkout abc123    # by short hash
-statekit checkout v1        # by tag
-statekit diff abc123 def456 # compare layers
+sequential-machine checkout abc123    # by short hash
+sequential-machine checkout v1        # by tag
+sequential-machine diff abc123 def456 # compare layers
 
 # Tags
-statekit tag v1             # tag current head
-statekit tag release abc123 # tag specific layer
-statekit tags               # list tags
+sequential-machine tag v1             # tag current head
+sequential-machine tag release abc123 # tag specific layer
+sequential-machine tags               # list tags
 
 # Inspect
-statekit inspect v1         # layer details
+sequential-machine inspect v1         # layer details
 
 # Manage
-statekit rebuild            # reconstruct workdir from layers
-statekit reset              # clear all state
+sequential-machine rebuild            # reconstruct workdir from layers
+sequential-machine reset              # clear all state
 
 # Run without capture
-statekit exec "cat file.txt"
+sequential-machine exec "cat file.txt"
 ```
 
 ## API
 
 ```javascript
-const { StateKit } = require('@anentrypoint/statekit');
+const { StateKit, StateKitVFS, SequentialMachineAdapter } = require('@sequential-ecosystem/sequential-machine');
 
 const kit = new StateKit({
   stateDir: '.statekit',
@@ -115,10 +115,50 @@ Commands accept refs in multiple formats:
 - Short hash: `abc123def456` (12+ chars)
 - Tag name: `v1`, `release`
 
+## Sequential Machine Adapter
+
+For integration with the Sequential ecosystem as an alternative to xstate:
+
+```javascript
+const { SequentialMachineAdapter } = require('@sequential-ecosystem/sequential-machine');
+
+// Initialize adapter
+const machine = new SequentialMachineAdapter({
+  stateDir: '.sequential-machine',
+  workdir: '.sequential-machine/work'
+});
+
+// Initialize machine state
+await machine.initialize();
+
+// Execute commands with state capture
+const result = await machine.execute('npm install');
+// { success: true, layer: 'abc...', short: 'abc123', cached: false, instruction: 'npm install' }
+
+// Get current state
+const state = machine.getCurrentState();
+// { layer: 'abc...', short: 'abc123' }
+
+// Restore to previous layer
+await machine.restore('abc123');
+
+// Batch execution
+const results = await machine.batch(['npm install', 'npm run build', 'npm test']);
+
+// Checkpoints
+await machine.checkpoint('before-deployment');
+const checkpoints = machine.listCheckpoints();
+await machine.restoreCheckpoint('before-deployment');
+
+// VFS integration for OS.js
+const vfs = machine.getVFSAdapter();
+await vfs.readdir('sequential-machine:/');
+```
+
 ## Environment
 
-- `STATEKIT_DIR` - state directory (default: `.statekit`)
-- `STATEKIT_WORK` - working directory (default: `.statekit/work`)
+- `SEQUENTIAL_MACHINE_DIR` - state directory (default: `.sequential-machine`)
+- `SEQUENTIAL_MACHINE_WORK` - working directory (default: `.sequential-machine/work`)
 
 ## License
 
