@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Persistent compute through content-addressable filesystem layers - Sequential ecosystem machine runner",
   "main": "lib/index.js",
-  "type": "module",
   "bin": {
     "sequential-machine": "./cli.js"
   },
