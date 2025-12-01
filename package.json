@@ -1,8 +1,14 @@
 {
-  "name": "@sequential-ecosystem/sequential-machine",
+  "name": "@sequential/sequential-machine",
   "version": "1.0.0",
   "description": "Persistent compute through content-addressable filesystem layers - Sequential ecosystem machine runner",
   "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./lib/index.js"
+    }
+  },
   "bin": {
     "sequential-machine": "./cli.js"
   },
