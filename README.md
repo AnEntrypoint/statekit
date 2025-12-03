@@ -7,7 +7,7 @@ Run commands, capture filesystem changes as immutable layers. Same instruction f
 ## Install
 
 ```bash
-npm install @sequential-ecosystem/sequential-machine
+npm install @sequential/sequential-machine
 ```
 
 ## CLI
@@ -46,7 +46,7 @@ sequential-machine exec "cat file.txt"
 ## API
 
 ```javascript
-const { StateKit, StateKitVFS, SequentialMachineAdapter } = require('@sequential-ecosystem/sequential-machine');
+const { StateKit, StateKitVFS, SequentialMachineAdapter } = require('@sequential/sequential-machine');
 
 const kit = new StateKit({
   stateDir: '.statekit',
@@ -120,7 +120,7 @@ Commands accept refs in multiple formats:
 For integration with the Sequential ecosystem as an alternative to xstate:
 
 ```javascript
-const { SequentialMachineAdapter } = require('@sequential-ecosystem/sequential-machine');
+const { SequentialMachineAdapter } = require('@sequential/sequential-machine');
 
 // Initialize adapter
 const machine = new SequentialMachineAdapter({

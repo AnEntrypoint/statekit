@@ -1,3 +1,6 @@
+import logger from '@sequential/sequential-logging';
+import { nowISO, createTimestamps, updateTimestamp } from '@sequential/timestamp-utilities';
+import { delay, withRetry } from '@sequential/async-patterns';
 #!/usr/bin/env node
 const { SequentialMachineAdapter } = require('./lib');
 const fs = require('fs');
@@ -20,8 +23,8 @@ class ServiceClient {
     const registryPath = path.resolve(this.options.servicesRegistry);
 
     if (!fs.existsSync(registryPath)) {
-      console.warn(`⚠️  Service registry not found at ${registryPath}`);
-      console.log('💡 Start wrapped services first: npx sequential-wrapped-services');
+      logger.warn(`⚠️  Service registry not found at ${registryPath}`);
+      logger.info('💡 Start wrapped services first: npx sequential-wrapped-services');
       return {};
     }
 
@@ -29,7 +32,7 @@ class ServiceClient {
       const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
       return registry.services || {};
     } catch (error) {
-      console.error(`❌ Failed to load service registry: ${error.message}`);
+      logger.error(`❌ Failed to load service registry: ${error.message}`);
       return {};
     }
   }
@@ -44,10 +47,10 @@ class ServiceClient {
     const payload = {
       method,
       params,
-      timestamp: new Date().toISOString()
+      timestamp: nowISO()
     };
 
-    console.log(`🔧 Calling ${serviceName}.${method}...`);
+    logger.info(`🔧 Calling ${serviceName}.${method}...`);
 
     try {
       const response = await fetch(url, {
@@ -69,7 +72,7 @@ class ServiceClient {
         throw new Error(`Service error: ${result.error || 'Unknown error'}`);
       }
 
-      console.log(`✅ ${serviceName}.${method} completed`);
+      logger.info(`✅ ${serviceName}.${method} completed`);
       return result;
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -92,7 +95,7 @@ async function callService() {
       body: JSON.stringify({
         method: '${method}',
         params: ${JSON.stringify(params)},
-        timestamp: new Date().toISOString()
+        timestamp: nowISO()
       })
     });
 
@@ -114,13 +117,13 @@ async function callService() {
       method: '${method}',
       params: ${JSON.stringify(params)},
       result: result,
-      timestamp: new Date().toISOString(),
+      timestamp: nowISO(),
       success: true
     }, null, 2));
 
-    console.log('💾 Service result written to: ' + resultFile);
+    logger.info('💾 Service result written to: ' + resultFile);
   } catch (error) {
-    console.error('❌ Service call failed:', error.message);
+    logger.error('❌ Service call failed:', error.message);
     process.exit(1);
   }
 }
@@ -147,14 +150,14 @@ callService();
         result: serviceResult,
         instruction,
         layer: result.layer,
-        timestamp: new Date().toISOString()
+        timestamp: nowISO()
       }, null, 2));
 
-      console.log(`💾 Service result saved to: ${checkpointFile}`);
+      logger.info(`💾 Service result saved to: ${checkpointFile}`);
 
       const checkpointName = `after-${serviceName}-${method}`;
       await this.machine.checkpoint(checkpointName);
-      console.log(`🏁 Checkpoint created: ${checkpointName}`);
+      logger.info(`🏁 Checkpoint created: ${checkpointName}`);
 
       return {
         ...result,
@@ -193,19 +196,19 @@ callService();
   }
 
   listServices() {
-    console.log('📋 Available Services:');
-    console.log('─'.repeat(50));
+    logger.info('📋 Available Services:');
+    logger.info('─'.repeat(50));
 
     if (Object.keys(this.services).length === 0) {
-      console.log('❌ No services loaded');
+      logger.info('❌ No services loaded');
       return;
     }
 
     for (const [name, service] of Object.entries(this.services)) {
-      console.log(`${name.padEnd(20)} → ${service.url}`);
+      logger.info(`${name.padEnd(20)} → ${service.url}`);
     }
 
-    console.log('─'.repeat(50));
+    logger.info('─'.repeat(50));
   }
 
   async checkServiceHealth(serviceName = null) {
@@ -222,19 +225,19 @@ callService();
 
         if (response.ok) {
           const health = await response.json();
-          console.log(`✅ ${serviceName}: ${health.status || 'OK'}`);
+          logger.info(`✅ ${serviceName}: ${health.status || 'OK'}`);
           return health;
         } else {
-          console.log(`❌ ${serviceName}: HTTP ${response.status}`);
+          logger.info(`❌ ${serviceName}: HTTP ${response.status}`);
           return null;
         }
       } catch (error) {
-        console.log(`❌ ${serviceName}: ${error.message}`);
+        logger.info(`❌ ${serviceName}: ${error.message}`);
         return null;
       }
     } else {
-      console.log('🏥 Checking Service Health:');
-      console.log('─'.repeat(40));
+      logger.info('🏥 Checking Service Health:');
+      logger.info('─'.repeat(40));
 
       const results = {};
       for (const name of Object.keys(this.services)) {
@@ -248,7 +251,7 @@ callService();
   listServiceResults() {
     const workdir = this.machine.options.workdir;
     if (!fs.existsSync(workdir)) {
-      console.log('📄 No service result files found');
+      logger.info('📄 No service result files found');
       return;
     }
 
@@ -257,12 +260,12 @@ callService();
     );
 
     if (files.length === 0) {
-      console.log('📄 No service result files found');
+      logger.info('📄 No service result files found');
       return;
     }
 
-    console.log('📄 Service Result Files:');
-    console.log('─'.repeat(40));
+    logger.info('📄 Service Result Files:');
+    logger.info('─'.repeat(40));
 
     for (const file of files.sort()) {
       const filePath = path.join(workdir, file);
@@ -271,7 +274,7 @@ callService();
       const serviceName = parts[0];
       const method = parts[1];
 
-      console.log(`${file.padEnd(30)} ${serviceName}.${method} (${stat.size} bytes)`);
+      logger.info(`${file.padEnd(30)} ${serviceName}.${method} (${stat.size} bytes)`);
     }
   }
 
@@ -284,15 +287,15 @@ callService();
     }
 
     await this.machine.restoreCheckpoint(checkpointName);
-    console.log(`🔄 Restored to checkpoint: ${checkpointName}`);
+    logger.info(`🔄 Restored to checkpoint: ${checkpointName}`);
 
     const workdir = this.machine.options.workdir;
     const files = fs.readdirSync(workdir).filter(f => f.startsWith('service-result-'));
 
     if (files.length > 0) {
-      console.log('📄 Service result files in current layer:');
+      logger.info('📄 Service result files in current layer:');
       for (const file of files) {
-        console.log(`  - ${file}`);
+        logger.info(`  - ${file}`);
       }
     }
   }
@@ -345,7 +348,7 @@ async function main() {
       for (const result of results) {
         const status = result.cached ? 'cached' : result.empty ? 'empty' : 'new';
         const serviceInfo = result.serviceResult ? ` [${result.serviceResult.service}.${result.serviceResult.method}]` : '';
-        console.log(`${result.short} [${status}]${serviceInfo}`);
+        logger.info(`${result.short} [${status}]${serviceInfo}`);
       }
       break;
     }
@@ -375,7 +378,7 @@ async function main() {
     }
 
     default:
-      console.log(`sequential-machine - persistent compute with wrapped services integration
+      logger.info(`sequential-machine - persistent compute with wrapped services integration
 
 Service Commands:
   call <service> <method> [params]      Call service (writes result file → checkpoint)
@@ -415,11 +418,11 @@ Environment:
 }
 
 function exit(msg) {
-  console.error(msg);
+  logger.error(msg);
   process.exit(1);
 }
 
 main().catch(err => {
-  console.error('❌ Error:', err.message);
+  logger.error('❌ Error:', err.message);
   process.exit(1);
 });
