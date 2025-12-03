@@ -1,3 +1,4 @@
+import logger from '@sequential/sequential-logging';
 #!/usr/bin/env node
 const { StateKit } = require('./lib');
 const fs = require('fs');
@@ -17,7 +18,7 @@ async function main() {
       if (!instruction) return exit('Usage: sequential-machine run <command>');
       const r = await kit.run(instruction);
       const status = r.cached ? 'cached' : r.empty ? 'empty' : 'new';
-      console.log(`${r.short} [${status}]`);
+      logger.info(`${r.short} [${status}]`);
       break;
     }
 
@@ -35,27 +36,27 @@ async function main() {
       const results = await kit.batch(instructions);
       for (const r of results) {
         const status = r.cached ? 'cached' : r.empty ? 'empty' : 'new';
-        console.log(`${r.short} [${status}]`);
+        logger.info(`${r.short} [${status}]`);
       }
       break;
     }
 
     case 'history': {
       const history = kit.history();
-      if (history.length === 0) return console.log('(empty)');
+      if (history.length === 0) return logger.info('(empty)');
       for (const l of history) {
         const parent = l.parentShort ? ` <- ${l.parentShort}` : '';
-        console.log(`${l.short}${parent}  ${l.instruction}`);
+        logger.info(`${l.short}${parent}  ${l.instruction}`);
       }
       break;
     }
 
     case 'status': {
       const s = await kit.status();
-      if (s.clean) return console.log('clean');
-      for (const f of s.added) console.log(`+ ${f}`);
-      for (const f of s.modified) console.log(`~ ${f}`);
-      for (const f of s.deleted) console.log(`- ${f}`);
+      if (s.clean) return logger.info('clean');
+      for (const f of s.added) logger.info(`+ ${f}`);
+      for (const f of s.modified) logger.info(`~ ${f}`);
+      for (const f of s.deleted) logger.info(`- ${f}`);
       break;
     }
 
@@ -64,11 +65,11 @@ async function main() {
       const to = args[2];
       const d = await kit.diff(from, to);
       if (d.added.length === 0 && d.modified.length === 0 && d.deleted.length === 0) {
-        return console.log('(no changes)');
+        return logger.info('(no changes)');
       }
-      for (const f of d.added) console.log(`+ ${f}`);
-      for (const f of d.modified) console.log(`~ ${f}`);
-      for (const f of d.deleted) console.log(`- ${f}`);
+      for (const f of d.added) logger.info(`+ ${f}`);
+      for (const f of d.modified) logger.info(`~ ${f}`);
+      for (const f of d.deleted) logger.info(`- ${f}`);
       break;
     }
 
@@ -76,7 +77,7 @@ async function main() {
       const ref = args[1];
       if (!ref) return exit('Usage: sequential-machine checkout <ref>');
       await kit.checkout(ref);
-      console.log(`checked out ${kit.head().slice(0, 12)}`);
+      logger.info(`checked out ${kit.head().slice(0, 12)}`);
       break;
     }
 
@@ -85,16 +86,16 @@ async function main() {
       const ref = args[2];
       if (!name) return exit('Usage: sequential-machine tag <name> [ref]');
       kit.tag(name, ref);
-      console.log(`tagged ${name} -> ${kit._resolve(name).slice(0, 12)}`);
+      logger.info(`tagged ${name} -> ${kit._resolve(name).slice(0, 12)}`);
       break;
     }
 
     case 'tags': {
       const tags = kit.tags();
       const entries = Object.entries(tags);
-      if (entries.length === 0) return console.log('(no tags)');
+      if (entries.length === 0) return logger.info('(no tags)');
       for (const [name, hash] of entries) {
-        console.log(`${name} -> ${hash.slice(0, 12)}`);
+        logger.info(`${name} -> ${hash.slice(0, 12)}`);
       }
       break;
     }
@@ -103,34 +104,34 @@ async function main() {
       const ref = args[1];
       if (!ref) return exit('Usage: sequential-machine inspect <ref>');
       const info = kit.inspect(ref);
-      console.log(`hash:        ${info.hash}`);
-      console.log(`instruction: ${info.instruction}`);
-      console.log(`parent:      ${info.parent || '(none)'}`);
-      console.log(`time:        ${info.time.toISOString()}`);
-      console.log(`size:        ${formatBytes(info.size)}`);
+      logger.info(`hash:        ${info.hash}`);
+      logger.info(`instruction: ${info.instruction}`);
+      logger.info(`parent:      ${info.parent || '(none)'}`);
+      logger.info(`time:        ${info.time.toISOString()}`);
+      logger.info(`size:        ${formatBytes(info.size)}`);
       break;
     }
 
     case 'rebuild': {
       const count = await kit.rebuild();
-      console.log(`rebuilt ${count} layers`);
+      logger.info(`rebuilt ${count} layers`);
       break;
     }
 
     case 'reset': {
       await kit.reset();
-      console.log('reset');
+      logger.info('reset');
       break;
     }
 
     case 'head': {
       const head = kit.head();
-      console.log(head ? head.slice(0, 12) : '(empty)');
+      logger.info(head ? head.slice(0, 12) : '(empty)');
       break;
     }
 
     default:
-      console.log(`sequential-machine - persistent compute through content-addressable layers
+      logger.info(`sequential-machine - persistent compute through content-addressable layers
 
 Commands:
   run <cmd>        Run command and capture state as layer
@@ -160,7 +161,7 @@ Environment:
 }
 
 function exit(msg) {
-  console.error(msg);
+  logger.error(msg);
   process.exit(1);
 }
 
@@ -171,6 +172,6 @@ function formatBytes(bytes) {
 }
 
 main().catch(err => {
-  console.error(err.message);
+  logger.error(err.message);
   process.exit(1);
 });

@@ -32,8 +32,8 @@
   "license": "Apache-2.0",
   "dependencies": {
     "tar": "^6.2.0",
-    "sequential-flow": "^1.0.0",
-    "sequential-utils": "^1.0.0"
+    "@sequential/sequential-flow": "^1.0.0",
+    "@sequential/sequential-utils": "^1.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
