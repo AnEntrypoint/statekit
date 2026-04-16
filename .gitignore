@@ -3,3 +3,4 @@ node_modules/
 .test-statekit/
 *.log
 README.md
+config.bat
